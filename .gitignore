@@ -23,6 +23,9 @@ venv/
 data/*
 !data/.gitkeep
 
+# keep the gitignore file
+!.gitignore
+
 # model
 model/*
 !model/.gitkeep
