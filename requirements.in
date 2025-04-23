@@ -1,0 +1,5 @@
+dspy
+openai
+python-dotenv
+pydantic-ai==0.0.52
+scikit-learn
