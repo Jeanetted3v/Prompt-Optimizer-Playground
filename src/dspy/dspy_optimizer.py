@@ -8,6 +8,7 @@ Optimizor: https://dspy.ai/learn/optimization/optimizers/?h=optimizer
 import dspy
 import os
 from dotenv import load_dotenv
+from typing import Optional
 import openai
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
@@ -24,26 +25,29 @@ def create_conversation_dataset():
     examples = [
         # Example 1 - Course inquiry
         dspy.Example(
+            user_question="I want to know about courses",
             conversation=[
                 {"role": "user", "content": "i want to know about courses"},
                 {"role": "assistant", "content": "may i get your kid's age and what kind of course is he or she interested in?"},
                 {"role": "user", "content": "my kid is 9 years old, interested in english reading"},
                 {"role": "assistant", "content": "there is a english reading course for ur kid, every tuesday and thursday, 7pm to 8pm"},
             ]
-        ).with_inputs("conversation"),
+        ).with_inputs("user_question", "conversation"),
         
         # Example 2 - Swimming lessons
         dspy.Example(
+            user_question="Do you offer swimming lessons?",
             conversation=[
                 {"role": "user", "content": "do you offer swimming lessons?"},
                 {"role": "assistant", "content": "yes, we do. may i know the age of the person interested and their swimming experience?"},
                 {"role": "user", "content": "my daughter is 7 with no prior experience"},
                 {"role": "assistant", "content": "we have beginner swimming classes for 6-8 year olds on mondays and wednesdays from 4pm to 5pm"},
             ]
-        ).with_inputs("conversation"),
+        ).with_inputs("user_question", "conversation"),
         
         # Example 3 - Teen programs
         dspy.Example(
+            user_question="What programs do you have for teenagers?",
             conversation=[
                 {"role": "user", "content": "what programs do you have for teenagers?"},
                 {"role": "assistant", "content": "we have several programs for teenagers including sports, arts, and academic enrichment. what specific interests does the teenager have?"},
@@ -52,56 +56,66 @@ def create_conversation_dataset():
                 {"role": "user", "content": "what are the beginner options?"},
                 {"role": "assistant", "content": "our beginner coding class covers Python basics, web development fundamentals, and simple game creation. it's suitable for ages 13-17 with no prior experience and includes all necessary equipment."},
             ]
-        ).with_inputs("conversation"),
+        ).with_inputs("user_question", "conversation"),
         
         # Example 4 - Music lessons
         dspy.Example(
+            user_question="Do you have piano lessons?",
             conversation=[
                 {"role": "user", "content": "Do you have piano lessons?"},
                 {"role": "assistant", "content": "Yes, we offer piano lessons for various age groups and skill levels. Could you tell me the age of the student and their current piano experience?"},
                 {"role": "user", "content": "My son is 12 and has been playing for about 2 years"},
                 {"role": "assistant", "content": "For a 12-year-old with 2 years of experience, we recommend our Intermediate Piano program. Classes are on Mondays and Thursdays from 5-6pm with instructor Ms. Johnson. Students work on classical and contemporary pieces while advancing their technical skills."},
             ]
-        ).with_inputs("conversation"),
+        ).with_inputs("user_question", "conversation"),
         
         # Example 5 - Sports inquiry
         dspy.Example(
+            user_question="Do you have any soccer programs?",
             conversation=[
                 {"role": "user", "content": "Do you have any soccer programs?"},
                 {"role": "assistant", "content": "Yes, we offer soccer programs for different age groups. What's the age of the person interested in soccer?"},
                 {"role": "user", "content": "My twins are 8 years old"},
                 {"role": "assistant", "content": "We have a youth soccer program for 7-9 year olds that meets every Tuesday and Saturday morning from 9-10:30am. The program focuses on developing fundamental skills through fun drills and small-sided games. All equipment is provided, but players should bring their own water bottle."},
             ]
-        ).with_inputs("conversation"),
+        ).with_inputs("user_question", "conversation"),
         
         # Example 6 - Adult education
         dspy.Example(
+            user_question="Do you have any classes for adults?",
             conversation=[
                 {"role": "user", "content": "Do you have any classes for adults?"},
                 {"role": "assistant", "content": "Yes, we offer various adult education programs. What subjects or activities are you interested in?"},
                 {"role": "user", "content": "I'd like to learn photography"},
                 {"role": "assistant", "content": "We offer a Digital Photography course for adults on Wednesday evenings from 6:30-8:30pm. The 8-week course covers camera basics, composition, lighting, and editing. It's suitable for beginners and intermediate photographers. The next session starts on June 5th and costs $195, which includes all materials except your camera."},
             ]
-        ).with_inputs("conversation"),
+        ).with_inputs("user_question", "conversation"),
         
         # Example 7 - Camp schedule
         dspy.Example(
+            user_question="When do your summer camps start?",
             conversation=[
                 {"role": "user", "content": "When do your summer camps start?"},
                 {"role": "assistant", "content": "Our summer camps run from June 15 through August 20. Are you looking for a specific age group or type of camp?"},
                 {"role": "user", "content": "Science camp for elementary school"},
                 {"role": "assistant", "content": "Our Science Explorers camp for elementary students (ages 6-11) has three sessions: June 15-26, July 13-24, and August 3-14. Each runs weekdays from 9am-3pm with options for extended care. Activities include experiments, robotics, nature exploration, and STEM challenges. Registration is $325 per two-week session with a 10% sibling discount."},
             ]
-        ).with_inputs("conversation")
+        ).with_inputs("user_question", "conversation"),
     ]
     return examples
 
 
-# Define a signature for conversation continuation
+# # Define a signature for conversation continuation
+# class ConversationContinuation(dspy.Signature):
+#     """Continue a conversation by generating the next assistant response."""
+#     conversation = dspy.InputField(desc="The conversation history as a list of messages")
+#     response = dspy.OutputField(desc="The next assistant response")
+
 class ConversationContinuation(dspy.Signature):
-    """Continue a conversation by generating the next assistant response."""
-    conversation = dspy.InputField(desc="The conversation history as a list of messages")
-    response = dspy.OutputField(desc="The next assistant response")
+    user_question: str = dspy.InputField()
+    conversation: Optional[list] = dspy.InputField()
+    response: str = dspy.OutputField()
+    history: dict = dspy.OutputField()
 
 
 # Implement semantic similarity metrics similar to DeepEval's approach
@@ -214,7 +228,7 @@ class ConversationBot(dspy.Module):
         super().__init__()
         self.generate = dspy.ChainOfThought(ConversationContinuation)
     
-    def forward(self, conversation):
+    def forward(self, conversation, user_question=None):
         # Extract the conversation up to the last user message
         user_turns = sum(1 for msg in conversation if msg["role"] == "user")
         assistant_turns = sum(1 for msg in conversation if msg["role"] == "assistant")
@@ -224,8 +238,14 @@ class ConversationBot(dspy.Module):
             input_conv = conversation[:-1]  # Remove last assistant message
         else:
             input_conv = conversation
+        if user_question is None and input_conv:
+            first_user_message = next((msg for msg in input_conv if msg["role"] == "user"), None)
+            if first_user_message:
+                user_question = first_user_message["content"]
+            else:
+                user_question = ""
             
-        return self.generate(conversation=input_conv)
+        return self.generate(conversation=input_conv, user_question=user_question)
 
 
 def train_conversation_model(model_path="./model/conversation_model.json"):
